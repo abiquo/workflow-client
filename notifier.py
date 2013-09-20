@@ -70,6 +70,7 @@ def build_html_virtualmachine_template_answer(task, action):
 		vmHd_GB = humanize.naturalsize(long(vm["vmHd"]), gnu=True)
 	else:
 		vmHd_GB = 0
+
 	vm_valueDict = {'vmName':vm["vmName"], 'vmCpu':vm["vmCpu"], 'vmRam':vm["vmRam"], 'vmHd':vmHd_GB, 'action':action}
 	
 	# Build the html for the virtual machine
@@ -80,6 +81,7 @@ def build_html_virtualmachine_template(task):
 	# Prepare accept / decline links
 	accept_lnk = "http://" + config.get('server', 'hostname') + ":" + config.get('server', 'port') + "/accept?task=" +  task['taskid']
 	cancel_lnk = "http://" + config.get('server', 'hostname') + ":" + config.get('server', 'port') + "/decline?task=" +  task['taskid']
+	amazon_lnk = "http://" + config.get('server', 'hostname') + ":" + config.get('server', 'port') + "/upload_amazon?task=" +  task['taskid']
 
 	# Get the details of the virtual machine and create the dictionary
 	vm = api.get_virtualmachine_details(task['rel_target'])
@@ -108,14 +110,24 @@ def build_html_virtualmachine_template(task):
                 vmHd_GB = humanize.naturalsize(long(vm["vmHd"]), gnu=True)
         else:
                 vmHd_GB = 0
-	vm_valueDict = {'vmName':vm["vmName"], 'vmCpu':vm["vmCpu"], 'vmRam':vm["vmRam"], 'vmHd':vmHd_GB, 'accept_lnk':accept_lnk, 'cancel_lnk':cancel_lnk, 'disks':vmdiskshtmlbody, 'pers':txt_pers, 'actionrows':rows_for_action }
+
+	if task['type'] == "UNDEPLOY":
+		vm_valueDict = {'vmName':vm["vmName"], 'vmCpu':vm["vmCpu"], 'vmRam':vm["vmRam"], 'vmHd':vmHd_GB, 'amazon_lnk':amazon_lnk,
+		'accept_lnk':accept_lnk, 'cancel_lnk':cancel_lnk, 'disks':vmdiskshtmlbody, 'pers':txt_pers, 'actionrows':rows_for_action }
 	
-	# Build the html for the virtual machine
-	return build_html_template(config.get('mail', 'admin_vm_template'),vm_valueDict)
+		# Build the html for the virtual machine
+		return build_html_template(config.get('mail', 'admin_undeploy_vm_template'),vm_valueDict)
+	else:
+		vm_valueDict = {'vmName':vm["vmName"], 'vmCpu':vm["vmCpu"], 'vmRam':vm["vmRam"], 'vmHd':vmHd_GB,
+		'accept_lnk':accept_lnk, 'cancel_lnk':cancel_lnk, 'disks':vmdiskshtmlbody, 'pers':txt_pers, 'actionrows':rows_for_action }
+	
+		# Build the html for the virtual machine
+		return build_html_template(config.get('mail', 'admin_vm_template'),vm_valueDict)
 
 def notify_new_task(tasks):	
 	accept_all_lnk = "http://" + config.get('server', 'hostname') + ":" + config.get('server', 'port') + "/multiple?action=accept&tasks="
 	cancel_all_lnk = "http://" + config.get('server', 'hostname') + ":" + config.get('server', 'port') + "/multiple?action=cancel&tasks="
+	upload_all_lnk = "http://" + config.get('server', 'hostname') + ":" + config.get('server', 'port') + "/multiple?action=amazon&tasks="
 
 	tasks_all = []
 
@@ -147,10 +159,17 @@ def notify_new_task(tasks):
 	tasks_all_str = TAKSDELIM.join(tasks_all)
 	accept_all_lnk = accept_all_lnk + tasks_all_str
 	cancel_all_lnk = cancel_all_lnk + tasks_all_str
+	upload_all_lnk = upload_all_lnk + tasks_all_str
 
-	# Prepare the complete template
-	valueDict = {'userStr':userStr, 'taskType':taskType, 'vmRows':vmhtmlbody, 'accept_all_lnk':accept_all_lnk, 'cancel_all_lnk':cancel_all_lnk, 'enterprise':enterprise, 'vapp':vapp, 'vdc':vdc, 'dc':dc }
-	htmlbody = build_html_template(config.get('mail', 'admin_template'),valueDict)
+	if taskType == "UNDEPLOY":
+		# Prepare the complete template
+		valueDict = {'userStr':userStr, 'taskType':taskType, 'vmRows':vmhtmlbody, 'accept_all_lnk':accept_all_lnk, 'upload_all_lnk':upload_all_lnk,
+			'cancel_all_lnk':cancel_all_lnk, 'enterprise':enterprise, 'vapp':vapp, 'vdc':vdc, 'dc':dc }
+		htmlbody = build_html_template(config.get('mail', 'admin_undeploy_template'),valueDict)
+	else:
+		# Prepare the complete template
+		valueDict = {'userStr':userStr, 'taskType':taskType, 'vmRows':vmhtmlbody, 'accept_all_lnk':accept_all_lnk, 'cancel_all_lnk':cancel_all_lnk, 'enterprise':enterprise, 'vapp':vapp, 'vdc':vdc, 'dc':dc }
+		htmlbody = build_html_template(config.get('mail', 'admin_template'),valueDict)
 
 	# Send the new task email	
 	if emailsList and len(emailsList) > 0:

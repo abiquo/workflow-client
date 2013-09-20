@@ -1,5 +1,5 @@
 #!/bin/python
-
+import api
 import sqlite3
 import xml.etree.ElementTree as xmlparser
 import notifier
@@ -14,7 +14,7 @@ def initialize():
 
 	# Create sqlite3 database file and create the table tasks
 	db = sqlite3.connect('workflow.db')
-	db.execute ("CREATE TABLE IF NOT EXISTS tasks (timestamp text, taskid text, userid int, type text, ownerid int, state text, rel_target text, rel_user text, rel_continue text, rel_cancel text, active int)")
+	db.execute ("CREATE TABLE IF NOT EXISTS tasks (timestamp text, taskid text, userid int, user_has_creds int, type text, ownerid int, state text, rel_target text, rel_user text, rel_continue text, rel_cancel text, active int)")
 	db.close()
 
 def get(task_id):
@@ -33,7 +33,7 @@ def insert(task):
 	# Insert the task into table tasks on database
         con = sqlite3.connect('workflow.db')
         cur = con.cursor()
-        cur.execute('insert into tasks values (?,?,?,?,?,?,?,?,?,?,1)', [task['timestamp'],task['taskid'],task['userid'],task['type'],task['ownerid'],task['state'],task['rel_target'],task['rel_user'],task['rel_continue'],task['rel_cancel']])
+        cur.execute('insert into tasks values (?,?,?,?,?,?,?,?,?,?,?,1)', [task['timestamp'],task['taskid'],task['userid'],task['user_has_creds'],task['type'],task['ownerid'],task['state'],task['rel_target'],task['rel_user'],task['rel_continue'],task['rel_cancel']])
         con.commit()
         con.close()
 
@@ -76,6 +76,9 @@ def parse_tasks_from_xml(data):
 			task['rel_user'] = rel_user
 			task['rel_continue'] = rel_continue
 			task['rel_cancel'] = rel_cancel
+			
+			task['user_has_creds'] = True if api.get_user_creds(rel_user) else False
+			
 			tasks.append(task)
 
 	else:
@@ -101,6 +104,9 @@ def parse_tasks_from_xml(data):
                 task['rel_user'] = rel_user
                 task['rel_continue'] = rel_continue
                 task['rel_cancel'] = rel_cancel
+
+                task['user_has_creds'] = True if api.user_has_creds(rel_user) else False
+
                 tasks.append(task)
 	return tasks
 
