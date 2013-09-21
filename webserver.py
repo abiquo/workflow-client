@@ -21,7 +21,7 @@ urls = (
 	'/accept', 'accept',
 	'/decline', 'decline',
 	'/multiple', 'multiple',
-    '/import_amazon', 'import_amazon'
+    '/upload_amazon', 'upload_amazon'
 )
 
 app = WorkflowApplication(urls, globals())
@@ -58,18 +58,18 @@ class multiple:
     def GET(self):
         web.header('Content-Type', 'text/html')
         get_vars = web.input()
-        response = handler.multiple_update(web.websafe(get_vars.tasks), web.websafe(get_vars.action))
+        response = handler.multiple_update(web.websafe(get_vars.tasks), web.websafe(get_vars.action), web.websafe(get_vars.dc))
         if response['code'] == '404':
             web.notfound()
         if response['code'] == '410':
             web.gone()
         return response['html']
 
-class import_amazon:
+class upload_amazon:
     def GET(self):
         web.header('Content-Type', 'text/html')
-        get_var = web.input(task = 'task')
-        response = handler.import_amazon(web.websafe(get_var.task))
+        get_vars = web.input()
+        response = handler.upload_amazon(web.websafe(get_vars.task), web.websafe(get_vars.dc))
         if response['code'] == '404':
             web.notfound()
         if response['code'] == '410':

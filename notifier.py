@@ -76,6 +76,15 @@ def build_html_virtualmachine_template_answer(task, action):
 	# Build the html for the virtual machine
 	return build_html_template(config.get('mail', 'requester_vm_template'), vm_valueDict)
 
+def build_public_dc_html(rel_user, amazon_lnk):
+	dcshtml = ""
+	dcs = api.get_user_creds(rel_user)
+	for dc in dcs:
+		dcname = api.get_dc_name(dc)
+		aws_lnk = amazon_lnk + "&dc=" + api.get_dc_id(dc)
+		dcshtml = dcshtml + build_html_template(config.get('mail', 'aws_dc_button'), { 'dcname':dcname, 'amazon_lnk':aws_lnk })
+	return "<tr>" + dcshtml + "</tr>"
+
 def build_html_virtualmachine_template(task):
 	vmType = ""
 	# Prepare accept / decline links
@@ -111,82 +120,67 @@ def build_html_virtualmachine_template(task):
         else:
                 vmHd_GB = 0
 
-	if task['type'] == "UNDEPLOY":
-		vm_valueDict = {'vmName':vm["vmName"], 'vmCpu':vm["vmCpu"], 'vmRam':vm["vmRam"], 'vmHd':vmHd_GB, 'amazon_lnk':amazon_lnk,
-		'accept_lnk':accept_lnk, 'cancel_lnk':cancel_lnk, 'disks':vmdiskshtmlbody, 'pers':txt_pers, 'actionrows':rows_for_action }
+	vm_valueDict = {'vmName':vm["vmName"], 'vmCpu':vm["vmCpu"], 'vmRam':vm["vmRam"], 'vmHd':vmHd_GB,
+	'accept_lnk':accept_lnk, 'cancel_lnk':cancel_lnk, 'disks':vmdiskshtmlbody, 'pers':txt_pers, 'actionrows':rows_for_action }
+
+	# Build the html for the virtual machine
+	return build_html_template(config.get('mail', 'admin_vm_template'),vm_valueDict)
+
+def notify_new_task(tasks):	
+	accept_all_lnk = "http://" + config.get('server', 'hostname') + ":" + config.get('server', 'port') + "/multiple?action=accept&tasks="
+	cancel_all_lnk = "http://" + config.get('server', 'hostname') + ":" + config.get('server', 'port') + "/multiple?action=cancel&tasks="
+	upload_all_lnk = "http://" + config.get('server', 'hostname') + ":" + config.get('server', 'port') + "/multiple?action=amazon&tasks="
+
+	tasks_all = []
+
+	first_task = tasks[0]
 	
-		# Build the html for the virtual machine
-		return build_html_template(config.get('mail', 'admin_undeploy_vm_template'),vm_valueDict)
+	# Prepare the mail properties
+	from_addr = config.get('mail', 'from')
+	subject = config.get('mail', 'admin_subject')
+	emailsList = api.get_emails_from_role(first_task["rel_target"])
+
+	# Prepare task details
+	taskType = first_task['type']
+
+	# Get data from the user who generated the task
+	userStr = api.get_name_user(first_task["rel_user"])
+
+	# Get the vapp, vdc and enterprise name where the vm/s are placed
+	vdc_lnk = re.sub(r'(.*)/virtualappliances/.*','\g<1>', first_task['rel_target'])
+	vdc = api.get_virtualdatacenter_name(vdc_lnk)
+	dc = api.get_datacenter_name(re.sub(r'(.*)/virtualappliances/.*','\g<1>', first_task['rel_target']))
+	vapp = api.get_virtualapp_name(re.sub(r'(.*)/virtualmachines/.*','\g<1>', first_task['rel_target']))
+	enterprise = api.get_enterprise_name(re.sub(r'(.*)/users/.*','\g<1>', first_task['rel_user']))
+	
+	# Build the html for the virtual machine/s
+	vmhtmlbody = ""
+	for task in tasks:
+		tasks_all.append(task['taskid'])
+		vmhtmlbody = vmhtmlbody + build_html_virtualmachine_template(task)
+
+	tasks_all_str = TAKSDELIM.join(tasks_all)
+	accept_all_lnk = accept_all_lnk + tasks_all_str
+	cancel_all_lnk = cancel_all_lnk + tasks_all_str
+	upload_all_lnk = upload_all_lnk + tasks_all_str
+
+	if taskType == "UNDEPLOY" and api.get_virtualdatacenter_type(vdc_lnk) != "AMZAON" and api.get_user_creds(task['rel_user']):
+		# Prepare the complete template
+		dcs_all = build_public_dc_html(first_task['rel_user'], upload_all_lnk)
+
+		valueDict = {'userStr':userStr, 'taskType':taskType, 'vmRows':vmhtmlbody, 'accept_all_lnk':accept_all_lnk, 'dcs_all':dcs_all,
+			'cancel_all_lnk':cancel_all_lnk, 'enterprise':enterprise, 'vapp':vapp, 'vdc':vdc, 'dc':dc }
+		htmlbody = build_html_template(config.get('mail', 'admin_undeploy_template'),valueDict)
 	else:
-		vm_valueDict = {'vmName':vm["vmName"], 'vmCpu':vm["vmCpu"], 'vmRam':vm["vmRam"], 'vmHd':vmHd_GB,
-		'accept_lnk':accept_lnk, 'cancel_lnk':cancel_lnk, 'disks':vmdiskshtmlbody, 'pers':txt_pers, 'actionrows':rows_for_action }
-	
-		# Build the html for the virtual machine
-		return build_html_template(config.get('mail', 'admin_vm_template'),vm_valueDict)
+		# Prepare the complete template
+		valueDict = {'userStr':userStr, 'taskType':taskType, 'vmRows':vmhtmlbody, 'accept_all_lnk':accept_all_lnk, 'cancel_all_lnk':cancel_all_lnk, 'enterprise':enterprise, 'vapp':vapp, 'vdc':vdc, 'dc':dc }
+		htmlbody = build_html_template(config.get('mail', 'admin_template'),valueDict)
 
-def notify_new_task(tasks):
-    tasks_all = []
+	# Send the new task email	
+	if emailsList and len(emailsList) > 0:
+		send_email(from_addr, emailsList, subject, htmlbody)
 
-    first_task = tasks[0]
-
-    amazon_datacenters = api.get_user_creds(first_task["rel_user"])
-
-    datacenters = []
-    for dc_url, dc_creds in amazon_datacenters.items():
-        datacenters.append(api.get_enterprise_name_by_url(dc_url))
-
-    accept_all_lnk = "http://" + config.get('server', 'hostname') + ":" + config.get('server', 'port') + "/multiple?action=accept&tasks="
-    cancel_all_lnk = "http://" + config.get('server', 'hostname') + ":" + config.get('server', 'port') + "/multiple?action=cancel&tasks="
-    upload_all_lnk = "http://" + config.get('server', 'hostname') + ":" + config.get('server', 'port') + "/multiple?action=amazon&tasks="
-    lnk_import_amazon_dc1 = "http://" + config.get('server', 'hostname') + ":" + config.get('server', 'port') + "/import_amazon?region=" + datacenters[0] + "&task="
-    #lnk_import_amazon_dc2 = "http://" + config.get('server', 'hostname') + ":" + config.get('server', 'port') + "/multiple?action=amazon&region=" + datacenters[1] + "&tasks="
-
-
-    # Prepare the mail properties
-    from_addr = config.get('mail', 'from')
-    subject = config.get('mail', 'admin_subject')
-    emailsList = api.get_emails_from_role(first_task["rel_target"])
-
-    # Prepare task details
-    taskType = first_task['type']
-
-    # Get data from the user who generated the task
-    userStr = api.get_name_user(first_task["rel_user"])
-
-    # Get the vapp, vdc and enterprise name where the vm/s are placed
-    vdc = api.get_virtualdatacenter_name(re.sub(r'(.*)/virtualappliances/.*','\g<1>', first_task['rel_target']))
-    dc = api.get_datacenter_name(re.sub(r'(.*)/virtualappliances/.*','\g<1>', first_task['rel_target']))
-    vapp = api.get_virtualapp_name(re.sub(r'(.*)/virtualmachines/.*','\g<1>', first_task['rel_target']))
-    enterprise = api.get_enterprise_name(re.sub(r'(.*)/users/.*','\g<1>', first_task['rel_user']))
-
-    # Build the html for the virtual machine/s
-    vmhtmlbody = ""
-    for task in tasks:
-        tasks_all.append(task['taskid'])
-        vmhtmlbody = vmhtmlbody + build_html_virtualmachine_template(task)
-
-    tasks_all_str = TAKSDELIM.join(tasks_all)
-    accept_all_lnk = accept_all_lnk + tasks_all_str
-    cancel_all_lnk = cancel_all_lnk + tasks_all_str
-    upload_all_lnk = upload_all_lnk + tasks_all_str
-    lnk_import_amazon_dc1 = lnk_import_amazon_dc1 + tasks_all_str
-    #lnk_import_amazon_dc2 = lnk_import_amazon_dc2 + tasks_all_str
-
-    if taskType == "UNDEPLOY":
-        # Prepare the complete template
-        valueDict = {'userStr':userStr, 'taskType':taskType, 'vmRows':vmhtmlbody, 'accept_all_lnk':accept_all_lnk, 'upload_all_lnk':upload_all_lnk,
-                'cancel_all_lnk':cancel_all_lnk, 'lnk_import_amazon_dc1':lnk_import_amazon_dc1, 'enterprise':enterprise, 'vapp':vapp, 'vdc':vdc, 'dc':dc , 'name_dc1': datacenters[0]}
-        htmlbody = build_html_template(config.get('mail', 'admin_undeploy_template'),valueDict)
-    else:
-        # Prepare the complete template
-        valueDict = {'userStr':userStr, 'taskType':taskType, 'vmRows':vmhtmlbody, 'accept_all_lnk':accept_all_lnk, 'cancel_all_lnk':cancel_all_lnk, 'enterprise':enterprise, 'vapp':vapp, 'vdc':vdc, 'dc':dc }
-        htmlbody = build_html_template(config.get('mail', 'admin_template'),valueDict)
-
-    # Send the new task email	
-    if emailsList and len(emailsList) > 0:
-        send_email(from_addr, emailsList, subject, htmlbody)
-
-    return emailsList
+	return emailsList
 
 def send_email(from_addr, emails, subject, htmlbody):
 
