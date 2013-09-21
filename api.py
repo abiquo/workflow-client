@@ -57,6 +57,11 @@ def get_virtualdatacenter_name(rel_vdc):
     virtualdatacenter = xmlparser.fromstring(r.text)
     return virtualdatacenter.find('name').text
 
+def get_virtualdatacenter_type(rel_vdc):
+    r = requests.get(apiurl + "/" + rel_vdc, auth=(apiusername, apipassword))
+    virtualdatacenter = xmlparser.fromstring(r.text)
+    return virtualdatacenter.find('hypervisorType').text
+
 def get_datacenter_name(rel_vdc):
     r = requests.get(apiurl + "/" + rel_vdc, auth=(apiusername, apipassword))
     virtualdatacenter = xmlparser.fromstring(r.text)
@@ -73,6 +78,11 @@ def get_dc_name(rel_dc):
     re = requests.get(rel_dc, auth=(apiusername, apipassword), headers={'accept': 'application/vnd.abiquo.datacenter+xml'})
     datacenter = xmlparser.fromstring(re.text)
     return datacenter.find('name').text
+
+def get_dc_id(rel_dc):
+    re = requests.get(rel_dc, auth=(apiusername, apipassword), headers={'accept': 'application/vnd.abiquo.datacenter+xml'})
+    datacenter = xmlparser.fromstring(re.text)
+    return datacenter.find('id').text
 
 def get_virtualapp_name(rel_vapp):
     r = requests.get(apiurl + "/" + rel_vapp, auth=(apiusername, apipassword))

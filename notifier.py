@@ -76,6 +76,15 @@ def build_html_virtualmachine_template_answer(task, action):
 	# Build the html for the virtual machine
 	return build_html_template(config.get('mail', 'requester_vm_template'), vm_valueDict)
 
+def build_public_dc_html(rel_user, amazon_lnk):
+	dcshtml = ""
+	dcs = api.get_user_creds(rel_user)
+	for dc in dcs:
+		dcname = api.get_dc_name(dc)
+		aws_lnk = amazon_lnk + "&dc=" + api.get_dc_id(dc)
+		dcshtml = dcshtml + build_html_template(config.get('mail', 'aws_dc_button'), { 'dcname':dcname, 'amazon_lnk':aws_lnk })
+	return "<tr>" + dcshtml + "</tr>"
+
 def build_html_virtualmachine_template(task):
 	vmType = ""
 	# Prepare accept / decline links
@@ -111,18 +120,11 @@ def build_html_virtualmachine_template(task):
         else:
                 vmHd_GB = 0
 
-	if task['type'] == "UNDEPLOY":
-		vm_valueDict = {'vmName':vm["vmName"], 'vmCpu':vm["vmCpu"], 'vmRam':vm["vmRam"], 'vmHd':vmHd_GB, 'amazon_lnk':amazon_lnk,
-		'accept_lnk':accept_lnk, 'cancel_lnk':cancel_lnk, 'disks':vmdiskshtmlbody, 'pers':txt_pers, 'actionrows':rows_for_action }
-	
-		# Build the html for the virtual machine
-		return build_html_template(config.get('mail', 'admin_undeploy_vm_template'),vm_valueDict)
-	else:
-		vm_valueDict = {'vmName':vm["vmName"], 'vmCpu':vm["vmCpu"], 'vmRam':vm["vmRam"], 'vmHd':vmHd_GB,
-		'accept_lnk':accept_lnk, 'cancel_lnk':cancel_lnk, 'disks':vmdiskshtmlbody, 'pers':txt_pers, 'actionrows':rows_for_action }
-	
-		# Build the html for the virtual machine
-		return build_html_template(config.get('mail', 'admin_vm_template'),vm_valueDict)
+	vm_valueDict = {'vmName':vm["vmName"], 'vmCpu':vm["vmCpu"], 'vmRam':vm["vmRam"], 'vmHd':vmHd_GB,
+	'accept_lnk':accept_lnk, 'cancel_lnk':cancel_lnk, 'disks':vmdiskshtmlbody, 'pers':txt_pers, 'actionrows':rows_for_action }
+
+	# Build the html for the virtual machine
+	return build_html_template(config.get('mail', 'admin_vm_template'),vm_valueDict)
 
 def notify_new_task(tasks):	
 	accept_all_lnk = "http://" + config.get('server', 'hostname') + ":" + config.get('server', 'port') + "/multiple?action=accept&tasks="
@@ -145,7 +147,8 @@ def notify_new_task(tasks):
 	userStr = api.get_name_user(first_task["rel_user"])
 
 	# Get the vapp, vdc and enterprise name where the vm/s are placed
-	vdc = api.get_virtualdatacenter_name(re.sub(r'(.*)/virtualappliances/.*','\g<1>', first_task['rel_target']))
+	vdc_lnk = re.sub(r'(.*)/virtualappliances/.*','\g<1>', first_task['rel_target'])
+	vdc = api.get_virtualdatacenter_name(vdc_lnk)
 	dc = api.get_datacenter_name(re.sub(r'(.*)/virtualappliances/.*','\g<1>', first_task['rel_target']))
 	vapp = api.get_virtualapp_name(re.sub(r'(.*)/virtualmachines/.*','\g<1>', first_task['rel_target']))
 	enterprise = api.get_enterprise_name(re.sub(r'(.*)/users/.*','\g<1>', first_task['rel_user']))
@@ -161,9 +164,11 @@ def notify_new_task(tasks):
 	cancel_all_lnk = cancel_all_lnk + tasks_all_str
 	upload_all_lnk = upload_all_lnk + tasks_all_str
 
-	if taskType == "UNDEPLOY":
+	if taskType == "UNDEPLOY" and api.get_virtualdatacenter_type(vdc_lnk) != "AMZAON" and api.get_user_creds(task['rel_user']):
 		# Prepare the complete template
-		valueDict = {'userStr':userStr, 'taskType':taskType, 'vmRows':vmhtmlbody, 'accept_all_lnk':accept_all_lnk, 'upload_all_lnk':upload_all_lnk,
+		dcs_all = build_public_dc_html(first_task['rel_user'], upload_all_lnk)
+
+		valueDict = {'userStr':userStr, 'taskType':taskType, 'vmRows':vmhtmlbody, 'accept_all_lnk':accept_all_lnk, 'dcs_all':dcs_all,
 			'cancel_all_lnk':cancel_all_lnk, 'enterprise':enterprise, 'vapp':vapp, 'vdc':vdc, 'dc':dc }
 		htmlbody = build_html_template(config.get('mail', 'admin_undeploy_template'),valueDict)
 	else:

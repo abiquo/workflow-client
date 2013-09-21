@@ -57,7 +57,7 @@ def decline_task(task_id, multiple = False, notify = True):
     
 	return generate_html_reply("Task canceled. The task is now being canceled\n", "200")
 
-def multiple_update(task_ids, action):
+def multiple_update(task_ids, action, dc):
 	all_tasks_id = task_ids.split(",")
 
 	all_tasks_id_confirmed = []
@@ -72,18 +72,17 @@ def multiple_update(task_ids, action):
 	for task_id in all_tasks_id_confirmed:
 		if action == "cancel":
 			decline_task(task_id, True)
+			notifier.notify_answered_tasks(all_tasks_id_confirmed, action)
 		elif action == "accept":
 			accept_task(task_id, True)
+			notifier.notify_answered_tasks(all_tasks_id_confirmed, action)
 		elif action == "amazon":
-			upload_amazon(task_id)
-	
-	notifier.notify_answered_tasks(all_tasks_id_confirmed, action)
+			upload_amazon(task_id, dc)
 
 	return generate_html_reply("The tasks " + task_ids + " are now being processed", "200")
 
 
 def new_tasks(post_data):
-
 	# Create the object task parsing the xml
 	tasks = Task.parse_tasks_from_xml(post_data)
 	
@@ -106,13 +105,13 @@ def new_tasks(post_data):
 		
 		print "Tasks " + COMMA.join(task_ids) + " cannot be notified. Applied default action " + default_action
 
-def upload_amazon(taskid):
+def upload_amazon(taskid, dc):
 	# TEST instance and download template
 	task = Task.get(taskid)
 	print "Task " + task['taskid'] + " set to be cancelled and uploaded to amazon."
 	if task['user_has_creds'] == True and task['type'] == "UNDEPLOY":
 		print "Cancelling task."
-		decline_task(task['taskid'], False, True)
+		decline_task(task['taskid'], False, False)
 		available_dc = api.get_user_creds(task['rel_user'])
 		if available_dc:
 			print "VM can be deployed to Amazon DCs :"
