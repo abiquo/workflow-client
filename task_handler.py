@@ -106,28 +106,29 @@ def new_tasks(post_data):
 		
 		print "Tasks " + COMMA.join(task_ids) + " cannot be notified. Applied default action " + default_action
 
-def upload_amazon(taskid):
-	# TEST instance and download template
-	task = Task.get(taskid)
-	print "Task " + task['taskid'] + " set to be cancelled and uploaded to amazon."
-	if task['user_has_creds'] == True and task['type'] == "UNDEPLOY":
-		print "Cancelling task."
-		decline_task(task['taskid'], False, True)
-		available_dc = api.get_user_creds(task['rel_user'])
-		if available_dc:
-			print "VM can be deployed to Amazon DCs :"
-			for key in available_dc:
-				dc_name = api.get_dc_name(key)
-				print dc_name
+def import_amazon(taskid):
+    # TEST instance and download template
+    task = Task.get(taskid)
+    print task
+    print "Task " + task['taskid'] + " set to be cancelled and uploaded to amazon."
+    if task['user_has_creds'] == True and task['type'] == "UNDEPLOY":
+        print "Cancelling task."
+        decline_task(task['taskid'], False, True)
+        available_dc = api.get_user_creds(task['rel_user'])
+        if available_dc:
+            print "VM can be deployed to Amazon DCs :"
+            for key in available_dc:
+                dc_name = api.get_dc_name(key)
+                print dc_name
 
-			print "Creating VM instance."
-			vm_details = api.get_virtualmachine_details(task['rel_target'])
-			instance_link = api.instancevm(task['rel_target'], vm_details['vmName'] + "-workflow-instance", True)
-			if instance_link:
-				print "Instance created : " + instance_link
-				print "Downloading instance."
-				api.download_template(instance_link)
-			else:
-				print "Instance cannot be created as VM is not in the right state"
+            print "Creating VM instance."
+            vm_details = api.get_virtualmachine_details(task['rel_target'])
+            instance_link = api.instancevm(task['rel_target'], vm_details['vmName'] + "-workflow-instance", True)
+            if instance_link:
+                print "Instance created : " + instance_link
+                print "Downloading instance."
+                api.download_template(instance_link)
+            else:
+                print "Instance cannot be created as VM is not in the right state"
 
-	return generate_html_reply("The task " + taskid + " is now being processed", "200")
+    return generate_html_reply("The task " + taskid + " is now being processed", "200")

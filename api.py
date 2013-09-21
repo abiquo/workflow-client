@@ -84,6 +84,11 @@ def get_enterprise_name(rel_enterprise):
     enterprise = xmlparser.fromstring(r.text)
     return enterprise.find('name').text
 
+def get_enterprise_name_by_url(url):
+    r = requests.get(url, auth=(apiusername, apipassword))
+    enterprise = xmlparser.fromstring(r.text)
+    return enterprise.find('name').text
+
 def get_name_user(rel_user):
     r = requests.get(apiurl + "/" + rel_user, auth=(apiusername, apipassword))
     user = xmlparser.fromstring(r.text)
@@ -165,6 +170,8 @@ def get_user_creds(rel_user):
     for child in userxml.findall('link'):
         if child.attrib.get('rel') == "enterprise":
             ent_link = child.attrib.get('href')
+
+    
 
     l = requests.get(ent_link + "/limits", auth=(apiusername, apipassword))
     limxml = xmlparser.fromstring(l.text)
@@ -256,7 +263,9 @@ def download_template(tmpl_link):
             break
 
     template_id = tmplxml.find('id').text
-    local_filename = download_location + "/" + template_id
+    template_name = tmplxml.find('name').text
+
+    local_filename = download_location + "/" + template_name + "-" + template_id
     
     diskdownload = requests.get(fileurl, auth=(apiusername, apipassword), stream=True)
     with open(local_filename, 'wb') as f:
