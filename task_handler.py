@@ -5,6 +5,7 @@ import notifier
 import task as Task
 import api
 import string
+import amazon
 
 config = ConfigParser.ConfigParser()
 config.read('workflow.cfg')
@@ -107,27 +108,44 @@ def new_tasks(post_data):
 		print "Tasks " + COMMA.join(task_ids) + " cannot be notified. Applied default action " + default_action
 
 def upload_amazon(taskid, dc):
-	# TEST instance and download template
-	task = Task.get(taskid)
-	print "Task " + task['taskid'] + " set to be cancelled and uploaded to amazon."
-	if task['user_has_creds'] == True and task['type'] == "UNDEPLOY":
-		print "Cancelling task."
-		decline_task(task['taskid'], False, False)
-		available_dc = api.get_user_creds(task['rel_user'])
-		if available_dc:
-			print "VM can be deployed to Amazon DCs :"
-			for key in available_dc:
-				dc_name = api.get_dc_name(key)
-				print dc_name
+    # TEST instance and download template
+    task = Task.get(taskid)
 
-			print "Creating VM instance."
-			vm_details = api.get_virtualmachine_details(task['rel_target'])
-			instance_link = api.instancevm(task['rel_target'], vm_details['vmName'] + "-workflow-instance", True)
-			if instance_link:
-				print "Instance created : " + instance_link
-				print "Downloading instance."
-				api.download_template(instance_link)
-			else:
-				print "Instance cannot be created as VM is not in the right state"
+    print "Task " + task['taskid'] + " set to be cancelled and uploaded to amazon."
+    if task['user_has_creds'] == True and task['type'] == "UNDEPLOY":
+        print "Cancelling task."
+        decline_task(task['taskid'], False, False)
+        available_dc = api.get_user_creds(task['rel_user'])
+        if available_dc:
+            print "VM can be deployed to Amazon DCs :"
+            for key in available_dc:
+                dc_name = api.get_dc_name(key)
+                print dc_name
 
-	return generate_html_reply("The task " + taskid + " is now being processed", "200")
+            print "Creating VM instance."
+            vm_details = api.get_virtualmachine_details(task['rel_target'])
+            instance_link = api.instancevm(task['rel_target'], vm_details['vmName'] + "-workflow-instance", True)
+            if instance_link:
+                print "Instance created : " + instance_link
+                print "Downloading instance."
+                image_path = api.download_template(instance_link)
+            else:
+                print "Instance cannot be created as VM is not in the right state"
+
+            image_path = "/tmp/ABQ_2094177d-fcba-4486-82c2-7a7977b83aef-workflow-instance-57"
+            # Amazon Party
+            if image_path:
+                # Recovering all the needed info
+                amazon_account_id = api.get_user_amazon_id(task['rel_user'])
+
+                user_creds = api.get_user_creds(task['rel_user'])
+                amazon_key =user_creds.values()[0]['access']
+                amazon_secret = user_creds.values()[0]['key']
+                amazon_region = api.get_datacenter_region_by_id(dc)
+              
+                amazon.extract_partition(image_path)
+                amazon.create_bundle(amazon_account_id, image_path)
+                amazon.upload_bundle(image_path, amazon_key, amazon_secret, amazon.region_to_s3_location(amazon_region))
+                amazon.register_ami(image_path, amazon_key, amazon_secret, amazon_region)
+
+    return generate_html_reply("The task " + taskid + " is now being processed", "200")

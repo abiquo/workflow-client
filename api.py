@@ -74,6 +74,12 @@ def get_datacenter_name(rel_vdc):
             datacenter = xmlparser.fromstring(re.text)
             return datacenter.find('name').text
 
+def get_datacenter_region_by_id(dc_id):
+    rel_dc = apiurl + "/admin/datacenters/" + dc_id
+    re = requests.get(rel_dc, auth=(apiusername, apipassword), headers={'accept': 'application/vnd.abiquo.publicdatacenter+xml'})
+    datacenter = xmlparser.fromstring(re.text)
+    return datacenter.find('region').text
+
 def get_dc_name(rel_dc):
     re = requests.get(rel_dc, auth=(apiusername, apipassword), headers={'accept': 'application/vnd.abiquo.datacenter+xml'})
     datacenter = xmlparser.fromstring(re.text)
@@ -249,6 +255,17 @@ def instancevm(rel_vm, instance_name, wait):
             if child.attrib.get('rel') == "result":
                 new_instance = child.attrib.get('href')
         
+        r = requests.get(new_instance, auth=(apiusername, apipassword))
+        req = xmlparser.fromstring(r.text)
+
+        status = ""
+        while (status != 'DONE'):
+            r = requests.get(new_instance, auth=(apiusername, apipassword))
+            req = xmlparser.fromstring(r.text)
+            status = req.find('state').text
+            print "Status: " + status
+            time.sleep(5)
+
         return new_instance
     else:
         return False
