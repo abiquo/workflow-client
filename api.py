@@ -158,7 +158,7 @@ def deploy_amazon(vapp_url,ami_url,ami_name,hardwareprofile_url):
     # hardware probile
     hwprofile_name = get_link_name(hardwareprofile_url)
 
-    data = xmlparser.Element("virtualMachine")
+    data = xmlparser.Element("virtualmachinewithnode")
     xmlparser.SubElement(data, "link", { 'title':ami_name, 'rel':'virtualmachinetemplate', 'type':'application/vnd.abiquo.virtualmachinetemplate+xml', 'href':apiurl + ami_url })
     xmlparser.SubElement(data, "link", { 'title':hwprofile_name, 'rel':'hardwareprofile', 'type':'application/vnd.abiquo.hardwareprofile+xml', 'href':apiurl + hardwareprofile_url })
     xmlparser.SubElement(data, "name").text = ami_name
@@ -169,7 +169,7 @@ def deploy_amazon(vapp_url,ami_url,ami_name,hardwareprofile_url):
     print xmlparser.dump(data)
     url = config.get('abiquo', 'api_location') + vapp_url + "/virtualmachines"
 
-    headers = { 'Accept':'application/vnd.abiquo.virtualmachinewithnode+xml; version=2.6','Content-Type':'application/vnd.abiquo.virtualmachinewithnode+xml; version=2.6' }
+    headers = { 'Accept':'application/vnd.abiquo.virtualmachine+xml; version=2.6','Content-Type':'application/vnd.abiquo.virtualmachinewithnode+xml; version=2.6' }
 
     try:
         r = requests.post(url, entity, headers=headers, auth=(config.get('abiquo', 'api_username'),config.get('abiquo', 'api_password')))
