@@ -149,3 +149,45 @@ def get_emails_from_role(rel_target):
 
     # Concatenate all the mails and return them
     return mails
+
+def deploy_amazon(vapp_url,ami_url,ami_name,hardwareprofile_url):
+
+    # Expects url from
+    # vapp
+    # ami
+    # hardware probile
+    hwprofile_name = get_link_name(hardwareprofile_url)
+
+    data = xmlparser.Element("virtualMachine")
+    xmlparser.SubElement(data, "link", { 'title':ami_name, 'rel':'virtualmachinetemplate', 'type':'application/vnd.abiquo.virtualmachinetemplate+xml', 'href':apiurl + ami_url })
+    xmlparser.SubElement(data, "link", { 'title':hwprofile_name, 'rel':'hardwareprofile', 'type':'application/vnd.abiquo.hardwareprofile+xml', 'href':apiurl + hardwareprofile_url })
+    xmlparser.SubElement(data, "name").text = ami_name
+    xmlparser.SubElement(data, "nodeName").text = ami_name
+
+
+    entity =  xmlparser.tostring(data, encoding='UTF-8')
+    print xmlparser.dump(data)
+    url = config.get('abiquo', 'api_location') + vapp_url + "/virtualmachines"
+
+    headers = { 'Accept':'application/vnd.abiquo.virtualmachinewithnode+xml; version=2.6','Content-Type':'application/vnd.abiquo.virtualmachinewithnode+xml; version=2.6' }
+
+    try:
+        r = requests.post(url, entity, headers=headers, auth=(config.get('abiquo', 'api_username'),config.get('abiquo', 'api_password')))
+        print "request"
+        print r
+    except Exception as e:
+        print "There was an error comunicating with Abiquo API."
+        print e
+    return 0
+
+
+def get_link_name(url):
+    r = requests.get(apiurl + url, auth=(apiusername, apipassword))
+    print r.text
+    xml = xmlparser.fromstring(r.text)
+    name = xml.find('name').text
+    return name
+
+
+
+    
