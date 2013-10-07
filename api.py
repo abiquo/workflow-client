@@ -166,19 +166,26 @@ def deploy_amazon(vapp_url,ami_url,ami_name,hardwareprofile_url):
 
 
     entity =  xmlparser.tostring(data, encoding='UTF-8')
-    print xmlparser.dump(data)
     url = config.get('abiquo', 'api_location') + vapp_url + "/virtualmachines"
 
     headers = { 'Accept':'application/vnd.abiquo.virtualmachine+xml; version=2.6','Content-Type':'application/vnd.abiquo.virtualmachinewithnode+xml; version=2.6' }
 
     try:
         r = requests.post(url, entity, headers=headers, auth=(config.get('abiquo', 'api_username'),config.get('abiquo', 'api_password')))
-        print "request"
-        print r
+        vm = xmlparser.fromstring(r.text)
+
+        links = vm.findall("link")
+        for link in links:
+            if link.attrib["rel"] == "deploy":
+                req = requests.post(link.attrib["href"] , auth=(apiusername, apipassword))
+     
+
     except Exception as e:
         print "There was an error comunicating with Abiquo API."
         print e
     return 0
+
+
 
 
 def get_link_name(url):
