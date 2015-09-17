@@ -66,7 +66,7 @@ def build_html_template(template_file, dictionary):
 def build_html_virtualmachine_template_answer(task, action):
 	# Get the details of the virtual machine and create the dictionary
 	vm = api.get_virtualmachine_details(task['rel_target'])
-	if "vmHD" in vm:
+	if "vmHd" in vm:
 		vmHd_GB = humanize.naturalsize(long(vm["vmHd"]), gnu=True)
 	else:
 		vmHd_GB = 0
@@ -104,7 +104,7 @@ def build_html_virtualmachine_template(task):
 		txt_pers = ""
 
 	rows_for_action = len(disks) + 1
-        if "vmHD" in vm:
+        if "vmHd" in vm:
                 vmHd_GB = humanize.naturalsize(long(vm["vmHd"]), gnu=True)
         else:
                 vmHd_GB = 0
